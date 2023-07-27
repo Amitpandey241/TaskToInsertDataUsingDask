@@ -26,10 +26,10 @@ def insert_into_db():
         dfs = read_insert()
         # insert_script = 'INSERT INTO TestingDB (Date, AveragePrice, Total Volume, Total Bags, Small Bags) VALUES (%s, %s,%s,%s,%s)'
 
-        for index,row in dfs.iterrows():
-            argss = (row.Date,row.AveragePrice,row.TotalVolume,row.TotalBags,row.SmallBags)
-            cur.execute('INSERT INTO test (date, average_price, total_Volume, total_bags, small_bags) VALUES (%s, %s,%s,%s,%s)',argss)
-            del argss
+        # for index,row in dfs.iterrows():
+            # argss = (row.Date,row.AveragePrice,row.TotalVolume,row.TotalBags,row.SmallBags)
+            # cur.execute('INSERT INTO test (date, average_price, total_Volume, total_bags, small_bags) VALUES (%s, %s,%s,%s,%s)',argss)
+            # del argss
         cur.execute('SELECT * FROM test')
         for record in cur.fetchall():
             print(record)
@@ -44,7 +44,7 @@ def insert_into_db():
             cur.close()
 
 def main():
-    # client = Client(n_workers=2, threads_per_worker=2, memory_limit="1GB")
+    client = Client(n_workers=2, threads_per_worker=2, memory_limit="1GB")
     test_read_fun = insert_into_db()
 
 
