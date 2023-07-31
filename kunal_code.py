@@ -1,3 +1,4 @@
+import concurrent.futures
 
 import psycopg2
 from dask.distributed import Client,LocalCluster
@@ -12,7 +13,18 @@ import os
 #               storage_options={'account_name': 'ACCOUNT_NAME',
 # dd.to_csv()
 
-def insert_into_db(argss):
+def insert_into_db(partition):
+    # counter += 1
+    print()
+    date = partition.loc[:, "Date"].values.compute()
+
+    average_price = partition.loc[:, "AveragePrice"].values.compute()
+    total_Volume = partition.loc[:, "TotalVolume"].values.compute()
+    total_bags = partition.loc[:, "TotalBags"].values.compute()
+    small_bags = partition.loc[:, "SmallBags"].values.compute()
+    company_name = "ABCD"
+    company_id = 123
+    argss = (date,average_price,total_Volume,total_bags,small_bags,company_name,company_id)
     hostname = 'localhost'
     database = 'user'
     username = 'postgres'
@@ -58,23 +70,15 @@ def main():
     counter = 0
     # for i in range(dfs.npartitions):
     #     print(dfs.partitions[i].compute())
+
+
     for i in range(dfs.npartitions):
         partition=dfs.partitions[i]
 
-        counter += 1
-        print()
-        date = dfs.loc[:,"Date"].values.compute()
 
-        average_price = dfs.loc[:,"AveragePrice"].values.compute()
-        total_Volume = dfs.loc[:,"TotalVolume"].values.compute()
-        total_bags = dfs.loc[:,"TotalBags"].values.compute()
-        small_bags = dfs.loc[:,"SmallBags"].values.compute()
-        company_name = "ABCD"
-        company_id = 123
+        # argss = (date, average_price, total_Volume, total_bags, small_bags,company_name,company_id)
 
-        argss = (date, average_price, total_Volume, total_bags, small_bags,company_name,company_id)
-
-        results = client.submit(insert_into_db, argss)
+        results = client.submit(insert_into_db, partition)
         # new = results.
         # print(results.result())
         # print(results.status)
@@ -82,10 +86,10 @@ def main():
         logs = []
         if results.status != "finished" and results.status != "pending":
             # logs.append(f"{partition} Partions {counter}")
-            resubmit = client.submit(insert_into_db, argss)
+            resubmit = client.submit(insert_into_db, partition)
             # print(f"resubmit Task partition {partition} and counter {counter}")
         # print(f"{partition} Partions {counter}")
-        del argss
+        # del argss
 
     print("finished the task")
 
