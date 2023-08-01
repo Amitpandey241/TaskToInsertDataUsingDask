@@ -4,6 +4,7 @@ from dask.distributed import Client,LocalCluster
 import pandas as pd
 import dask.dataframe as dd
 import os
+import concurrent
 
 
 
@@ -12,7 +13,7 @@ import os
 #               storage_options={'account_name': 'ACCOUNT_NAME',
 # dd.to_csv()
 
-def insert_into_db(argss):
+def insert_into_db(rows):
     hostname = 'localhost'
     database = 'user'
     username = 'postgres'
@@ -34,9 +35,9 @@ def insert_into_db(argss):
 
         cur = conn.cursor()
 
-        cur.execute(
-            'INSERT INTO test (date, average_price, total_Volume, total_bags, small_bags,company_name,company_id) VALUES (%s, %s,%s,%s,%s)',
-            argss)
+        cur.executemany(
+            'INSERT INTO test (date, average_price, total_Volume, total_bags, small_bags,company_name,company_id) VALUES (%s, %s,%s,%s,%s,%s,%s)',
+            rows)
         conn.commit()
     except Exception as error:
         print(str(error))
@@ -48,46 +49,41 @@ def insert_into_db(argss):
 
 
 
+def get_rows_for_bulk_insert(partition):
+    rows = []
+    for index, row in partition.iterrows():
+        date = row["Date"]
+        average_price = row["AveragePrice"]
+        total_Volume = row["TotalVolume"]
+        total_bags = row["TotalBags"]
+        small_bags = row["SmallBags"]
+        company_name = "ABCD"
+        company_id = 123
+        rows.append((date, average_price, total_Volume, total_bags, small_bags, company_name.isupper(), company_id))
+    return rows
+
+
 def main():
     cluster = LocalCluster(n_workers=2, threads_per_worker=2, memory_limit="1GB")
     client = Client(cluster)
     # partision of the file
+
     dfs = dd.from_pandas(pd.read_csv('/home/amitpandey/Desktop/taskOnPostgreysSQL/files/new-0.csv'), npartitions=5)
-    # print(tuple(dfs.loc[:,"Date"].compute()))
-    # submitting the task
-    counter = 0
-    # for i in range(dfs.npartitions):
-    #     print(dfs.partitions[i].compute())
+
+    rows_for_bulk_insert = []
+    print(dfs.npartitions)
     for i in range(dfs.npartitions):
-        partition=dfs.partitions[i]
 
-        counter += 1
-        print()
-        date = dfs.loc[:,"Date"].values.compute()
 
-        average_price = dfs.loc[:,"AveragePrice"].values.compute()
-        total_Volume = dfs.loc[:,"TotalVolume"].values.compute()
-        total_bags = dfs.loc[:,"TotalBags"].values.compute()
-        small_bags = dfs.loc[:,"SmallBags"].values.compute()
-        company_name = "ABCD"
-        company_id = 123
+        partition = dfs.partitions[i]
+        rows = client.submit(get_rows_for_bulk_insert, partition)
+        rows_for_bulk_insert.extend(rows.result())
 
-        argss = (date, average_price, total_Volume, total_bags, small_bags,company_name,company_id)
 
-        results = client.submit(insert_into_db, argss)
-        # new = results.
-        # print(results.result())
-        # print(results.status)
-        print(f"this is rsult {results.result()} and {results.status},")
-        logs = []
-        if results.status != "finished" and results.status != "pending":
-            # logs.append(f"{partition} Partions {counter}")
-            resubmit = client.submit(insert_into_db, argss)
-            # print(f"resubmit Task partition {partition} and counter {counter}")
-        # print(f"{partition} Partions {counter}")
-        del argss
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.submit(insert_into_db, rows_for_bulk_insert)
 
-    print("finished the task")
+    print("Finished the task")
 
 
 

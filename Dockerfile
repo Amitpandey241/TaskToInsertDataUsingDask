@@ -7,5 +7,5 @@ ADD . /app
 RUN pip install -r requirements.txt
 
 
-CMD ["python","dask_way.py"]
+CMD ["python","final_task.py"]
 
